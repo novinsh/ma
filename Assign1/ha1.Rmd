@@ -1,0 +1,347 @@
+---
+title: "Home assignment 1"
+author: "Novin Shahroudi"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+# Exercise 1 - Principle Component Analysis
+
+```{r echo=TRUE, include=TRUE}
+(S = matrix( c(65.1,33.6,47.6,36.8,25.4,
+              33.6,46.1,28.9,40.3,28.4,
+              47.6,28.9,60.7,37.4,41.1,
+              36.8,40.3,37.4,62.8,31.7,
+              25.4,28.4,41.1,31.7,58.2), nrow = 5));
+sprintf("total variation: %f", sum(diag(S)))
+```
+
+Correlation matrix can be calculated using the following formula:
+$$ R = S_d^{-1/2}SS_d^{-1/2}$$
+Where $R$ is the obtained correlation matrix, $S$ is the covariance matrix and 
+$S_d$ is the diagonal matrix of the covariance matrix diagonal.
+
+The above formula corresponds to the following equation:
+$$\rho_ = \frac{\sigma_{ij}}{\sqrt{\sigma_{ii}}\sqrt{\sigma_{jj}}}$$
+
+
+```{r echo=TRUE, include=TRUE}
+S_d <- diag(sqrt(diag(S))^(-1))
+(R = S_d %*% S %*% S_d)
+sprintf("total variation: %i", sum(diag(R)))
+```
+
+
+## a) 'probe word' data
+
+__PCA with S__:
+Principle components correspond to the eigen vectors. In order to obtain those we
+use R built-in function ```eigen``` on the covariance matrix $S$.
+
+```{r echo=TRUE, include=TRUE}
+L <- diag(eigen(S)$values) # Eigen values (Lambda)
+V <- eigen(S)$vectors # Eigen vectors
+V
+V %*% L %*% t(V) # spectral decomposition
+L
+
+variance_cumsum <- cumsum(diag(L))
+cumsum_var_ratio <- (cumsum(diag(L)) / sum(diag(S))) * 100
+reslt <- data.frame(rbind(V=V, variance=diag(L), variance_cumsum, cumsum_var_ratio),
+                    row.names = c("vector_cmp1", "vector_cmp2", "vector_cmp3", 
+                                  "vector_cmp4", "vector_cmp5", "variance", 
+                                  "cumulative variance", "cumulative variance in percentage"))
+# TODO: add the percentage for variance as well!
+colnames(reslt) <- c("PC1", "PC2", "PC3", "PC4", "PC5")
+
+round(reslt, 2)
+```
+Eigen vector, variance, cumulative variance and its percentage for each principle 
+component reported in the table achieved from covariance matrix.
+
+__PCA with R__:
+
+```{r echo=TRUE, include=TRUE}
+(L2 <- diag(eigen(R)$values)) # Eigen values (Lambda)
+(V <- eigen(R)$vectors) # Eigen vectors
+
+V %*% L2 %*% t(V) # spectral decomposition
+
+variance_cumsum <- cumsum(diag(L2))
+cumsum_var_ratio <- (cumsum(diag(L2)) / sum(diag(R))) * 100
+reslt <- data.frame(rbind(V=V, variance=diag(L2), variance_cumsum, cumsum_var_ratio),
+                    row.names = c("vector_cmp1", "vector_cmp2", "vector_cmp3", 
+                                  "vector_cmp4", "vector_cmp5", "variance", 
+                                  "cumulative variance", "cumulative variance in percentage"))
+# TODO: add the percentage for variance as well!
+colnames(reslt) <- c("PC1", "PC2", "PC3", "PC4", "PC5")
+round(reslt, 2)
+```
+Eigen vector, variance, cumulative variance and its percentage for each principle 
+component reported in the table obtained from correlation matrix.
+
+Based on this and previous table We need to consider two principle components 
+to explain 80% of the variance and three PCs for 90%. 
+That can be observed from the cumulative variance of the obtained principle components.
+
+```{r, echo=F, include=T, fig.width=8, fig.align='center'}
+# diag(L)
+par(mfcol=c(1,2), pty="s")
+plot(c(1, 2, 3, 4, 5), diag(L), type="o", xlab = "PC", ylab = "variance", main = "screeplot (S)")
+plot(c(1, 2, 3, 4, 5), diag(L2), type="o", xlab = "PC", ylab = "variance", main = "screeplot (R)")
+```
+
+As a conclusion for our case since the input features are of same unit we can 
+use covariance matrix. Also It is worthnoty that the outcome of using covariance
+and correlation matrix are almost the same!
+% TODO: why - is it because they are of same units?
+
+The screeplot shows the elbow in the first 2 components.
+
+## b) 'temperature' data
+```{r}
+temp <- read.table("temp.txt", header = F)
+fix(temp)
+summary(temp)
+dim(temp)
+diag(var(temp))
+```
+
+From the variance of each variable we can see that they have different range and
+probably we need to scale them but that depends on the task.
+
+__Performing PCA using coveriance and correlation matrix__:
+```{r}
+temppc_cov <- prcomp(temp, scale = F) # using covariance matrix
+temppc_cor <- prcomp(temp, scale = T) # using correlation matrix
+
+# get the variance and its cumulative proportions for each
+summary(temppc_cov)
+summary(temppc_cor)
+
+# print the first two component of PCA obstained using S
+temppc_cov$rotation[,1:2]
+```
+
+% why correlation matrix isn't giving the better result compared o the covariance matrix?
+
+- the result of principle component is summarized containng the variance, its percentage,
+and cumulative proportion of it. PC1 explains $91%$ and PC2 $6%$
+- From the results of the principle component analysis we can see that the total 
+variance explained by the first 2 PCs by $S$ is $98%$, while if we use $R$ the 
+same amount can roughly be explained using the first 8 PCs!
+- In the PCs obtained using $S$ the first PC is dominated by $V10$ and second one
+by $V9$.
+- The formula for the first principle component is as follow:
+
+1. With covariance matrix:
+$$\xi_1 = \upsilon'_1 \chi_c$$
+Where $\xi: p\times 1$ is the new variable, $\upsilon: 1\times p$ is the first principle
+component (corresponding to the first eigen vector of the covariance matrix of the
+$X$), and $\chi: p\times 1$ is the centered input variable.
+
+$$\upsilon'_1 = (v_1, v_2, ..., v_p)$$
+$$\chi_c = (x_1-\mu_1, x_2-\mu_1, ..., x_p-\mu_1)$$
+2. With correlation matrix:
+$$\xi_1 = \upsilon'_1 \chi_s$$
+The only difference is that the input features are normalized. 
+$$\chi_s = (\frac{x_1-\mu_1}{\sigma_1}, \frac{x_2-\mu_2}{\sigma_2}, ..., \frac{x_p-\mu_p}{\sigma_p})$$
+
+**Conclusion**: It is more appropriate to use covariance matrix on this data 
+because the first few PCs explain the input data better, or in a another word, 
+it can reduce the dimension better when using covariance matrix.
+
+
+# Exercise 2 - Factor Analysis on Psychological tests
+```{r}
+library(psych)
+data<-read.table("24psychtests1.txt",header=T)
+# summary(data)
+# fix(data)
+# str(data)
+
+# consider only test variables
+dataNew<-data[,5:29]; 
+p = dim(dataNew)[2]-1 # p = number of features
+# fix(dataNew);
+# dim(dataNew) 
+
+CorD<-cor(dataNew[,1:p]);  # correlation matrix
+# round(CorD,digits=2);
+dataSc<-scale(dataNew[,1:p]); # normalizing the data
+# dim(dataSc) 
+
+# eigenvalues and eigenvectors of the correlation matrix
+e<-eigen(CorD) 
+# round(e$values, digits=2)     
+
+plot(c(1:p),e$values)   # scree plot 
+```
+## 1) Estimate Factor Model
+
+### PCM
+
+__k=4__:
+```{r}
+pcm4 <- principal(CorD,4,residuals=TRUE,rotate="varimax")
+tablepcm4 = cbind(pcm4$loadings, pcm4$communality, pcm4$uniquenesses)
+colnames(tablepcm4) = c("q1", "q2", "q3", "q4", "Communalities", "Uniquenesses")
+print(round(tablepcm4,3))
+residerror<-pcm4$residual-diag(diag(pcm4$residual)); 
+sqrt(sum((residerror)^2)/(p*(p-1)))
+# plot(c(1:24), pcm4$values)
+
+sprintf('variance per factor (percentage): ')
+pcm4$values[1:4]/p  # variance percentage
+sprintf('cumulative variance: ')
+cumsum(pcm4$values[1:4]/p) # cumulative variance percentage
+```
+- total variance: 45%
+- uniqueness: 
+
+__k=5__:
+```{r}
+pcm5 <- principal(CorD,5,residuals=TRUE,rotate="varimax")
+tablepcm5 = cbind(pcm5$loadings, pcm5$communality, pcm5$uniquenesses)
+colnames(tablepcm5) = c("q1", "q2", "q3", "q4", "q5", "Communalities", "Uniquenesses")
+print(round(tablepcm5,3))
+residerror<-pcm5$residual-diag(diag(pcm5$residual)); 
+sqrt(sum((residerror)^2)/(p*(p-1)))
+
+sprintf('variance per factor (percentage): ')
+pcm4$values[1:5]/p  # variance percentage
+sprintf('cumulative variance: ')
+cumsum(pcm4$values[1:5]/p) # cumulative variance percentage
+```
+- total variance: 58%
+- uniqueness:
+
+__k=6__:
+```{r}
+pcm6 <- principal(CorD,6,residuals=TRUE,rotate="varimax")
+tablepcm6 = cbind(pcm6$loadings, pcm6$communality, pcm6$uniquenesses)
+colnames(tablepcm6) = c("q1", "q2", "q3", "q4", "q5", "q6", "Communalities", "Uniquenesses")
+print(round(tablepcm6,3))
+residerror<-pcm6$residual-diag(diag(pcm6$residual)); 
+sqrt(sum((residerror)^2)/(p*(p-1)))
+
+sprintf('variance per factor (percentage): ')
+pcm4$values[1:6]/p  # variance percentage
+sprintf('cumulative variance: ')
+cumsum(pcm4$values[1:6]/p) # cumulative variance percentage
+```
+- total variance: 62%
+- uniqueness:
+
+### PFM
+
+__k=4__
+```{r}
+# Principal factor method
+pfa4<-fa(CorD,nfactors=4,fm="pa",SMC=TRUE,rotate="varimax",max.iter=50)
+print(pfa4);
+commun4<-diag(pfa4$loadings%*%t(pfa4$loadings))
+#
+pfa4table = cbind(pfa4$loadings, commun4, pfa4$uniquenesses)
+colnames(pfa4table) = c("q1", "q2", "q3","q4", "Communalities", "Specific variances")
+print(round(pfa4table,3))
+pfa4$rms;
+```
+
+__k=5__
+```{r}
+# Principal factor method
+pfa5<-fa(CorD,nfactors=5,fm="pa",SMC=TRUE,rotate="varimax",max.iter=50)
+print(pfa5);
+commun5<-diag(pfa5$loadings%*%t(pfa5$loadings))
+#
+pfa5table = cbind(pfa5$loadings, commun5, pfa5$uniquenesses)
+colnames(pfa5table) = c("q1", "q2", "q3","q4","q5", "Communalities", "Specific variances")
+print(round(pfa5table,3))
+pfa5$rms;
+```
+
+__k=6__
+```{r}
+# Principal factor method
+pfa6<-fa(CorD,nfactors=6,fm="pa",SMC=TRUE,rotate="varimax",max.iter=50)
+print(pfa6);
+commun6<-diag(pfa6$loadings%*%t(pfa6$loadings))
+#
+pfa6table = cbind(pfa6$loadings, commun6, pfa6$uniquenesses)
+colnames(pfa6table) = c("q1", "q2", "q3","q4","q5", "q6", "Communalities", "Specific variances")
+print(round(pfa6table,3))
+pfa6$rms;
+```
+
+### MLM
+
+__k=4:__
+```{r}
+mlm4<-factanal(dataSc, factors=4, scores="regression", rotation = "varimax")
+print(mlm4)
+
+# Table with loadings, communalities and uniquenesses
+commun4<-diag(mlm4$loadings%*%t(mlm4$loadings))
+mlm4table = cbind(mlm4$loadings, commun4, mlm4$uniquenesses)
+colnames(mlm4table) = c("Factor1", "Factor2", "Factor3", "Factor4", "Communalities", "Specific variances")
+print(round(mlm4table,3))
+sum(commun4)/p # compare with cumulative var for 4 factors
+
+#
+resid4<-CorD-mlm4$loadings%*%t(mlm4$loadings); # residuals
+resid4offdiag<-resid4-diag(diag(resid4)); # off-diagonal elements for rms
+sqrt(sum((resid4offdiag)^2)/(p*(p-1))) # rms
+```
+
+__k=5:__
+```{r}
+mlm5<-factanal(dataSc, factors=5, scores="regression", rotation = "varimax")
+print(mlm5)
+
+# Table with loadings, communalities and uniquenesses
+commun5<-diag(mlm5$loadings%*%t(mlm5$loadings))
+mlm5table = cbind(mlm5$loadings, commun5, mlm5$uniquenesses)
+colnames(mlm5table) = c("Factor1", "Factor2", "Factor3", "Factor4","Factor5","Communalities", "Specific variances")
+print(round(mlm5table,3))
+sum(commun5)/p # compare with cumulative var for 5 factors
+
+#
+resid5<-CorD-mlm5$loadings%*%t(mlm5$loadings); # residuals
+resid5offdiag<-resid5-diag(diag(resid5)); # off-diagonal elements for rms
+sqrt(sum((resid5offdiag)^2)/(p*(p-1))) # rms
+```
+
+__k=6:__
+```{r}
+mlm6<-factanal(dataSc, factors=6, scores="regression", rotation = "varimax")
+print(mlm6)
+
+# Table with loadings, communalities and uniquenesses
+commun6<-diag(mlm6$loadings%*%t(mlm6$loadings))
+mlm6table = cbind(mlm6$loadings, commun6, mlm6$uniquenesses)
+colnames(mlm6table) = c("Factor1", "Factor2", "Factor3", "Factor4", "Factor5", "Factor6", "Communalities", "Specific variances")
+print(round(mlm6table,3))
+sum(commun6)/p # compare with cumulative var for 6 factors
+
+#
+resid6<-CorD-mlm6$loadings%*%t(mlm6$loadings); # residuals
+resid6offdiag<-resid6-diag(diag(resid6)); # off-diagonal elements for rms
+sqrt(sum((resid6offdiag)^2)/(p*(p-1))) # rms
+```
+
+## 2) interpret factors using loadings
+```{r}
+pcm6$loadings
+pfa6$loadings
+mlm6$loadings
+```
+
+## 3) estimated factor scores
+
+
+# Exercise 3 - Scale change effect on PCA
+
+
+
